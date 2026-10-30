@@ -39,3 +39,11 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# env files (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# husky internals
+.husky/_
