@@ -22,10 +22,23 @@ const envSchema = z
       .transform((value) => (value ? value : undefined)),
     sentryEnableInDev: z.stringbool().default(false),
     appEnv: z.enum(['development', 'preview', 'production']).default('development'),
+    // Internal test builds against the HTTP-only hosted backend opt in explicitly (eas.json
+    // "hosted-test"). Never set it for a store build.
+    allowInsecureHttp: z.stringbool().default(false),
   })
-  .refine((config) => config.appEnv === 'development' || config.apiUrl.startsWith('https://'), {
-    error: 'EXPO_PUBLIC_API_URL must use https:// in preview and production builds',
-    path: ['apiUrl'],
+  .refine(
+    (config) =>
+      config.appEnv === 'development' ||
+      config.allowInsecureHttp ||
+      config.apiUrl.startsWith('https://'),
+    {
+      error: 'EXPO_PUBLIC_API_URL must use https:// in preview and production builds',
+      path: ['apiUrl'],
+    },
+  )
+  .refine((config) => !(config.allowInsecureHttp && config.appEnv === 'production'), {
+    error: 'EXPO_PUBLIC_ALLOW_INSECURE_HTTP is for internal test builds, never production',
+    path: ['allowInsecureHttp'],
   });
 
 export type Env = z.infer<typeof envSchema>;
@@ -37,6 +50,7 @@ export interface RawEnv {
   sentryDsn: string | undefined;
   sentryEnableInDev: string | undefined;
   appEnv: string | undefined;
+  allowInsecureHttp: string | undefined;
 }
 
 /** Validates the raw values and throws one readable error listing every problem. */
@@ -62,4 +76,5 @@ export const env: Env = parseEnv({
   sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   sentryEnableInDev: process.env.EXPO_PUBLIC_SENTRY_ENABLE_IN_DEV,
   appEnv: process.env.EXPO_PUBLIC_APP_ENV,
+  allowInsecureHttp: process.env.EXPO_PUBLIC_ALLOW_INSECURE_HTTP,
 });

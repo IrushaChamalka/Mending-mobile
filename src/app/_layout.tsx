@@ -24,8 +24,16 @@ function RootNavigator(): JSX.Element | null {
       <Stack.Protected guard={isSignedIn}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
+      {/*
+        Leaf screens, login first, and no (auth) layout: a signed-out start at "/" (the protected
+        Home tab) then falls back to sign-in. With a nested (auth) navigator it showed "Unmatched
+        Route" (providers/__tests__/authRouting.test.tsx).
+      */}
       <Stack.Protected guard={!isSignedIn}>
-        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(auth)/login" />
+        <Stack.Screen name="(auth)/forgot-password" />
+        <Stack.Screen name="(auth)/verify-code" />
+        <Stack.Screen name="(auth)/new-password" />
       </Stack.Protected>
     </Stack>
   );

@@ -1,12 +1,29 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
+import { withAndroidManifest, type ConfigPlugin } from 'expo/config-plugins';
 
 const APP_NAME = 'StitchFlow';
 // TODO: confirm the bundle identifier / Android package name with the team before the first store build.
 const APPLICATION_ID = 'com.technyne.stitchflow';
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
+/**
+ * Android release builds refuse plain-HTTP requests. Internal test builds that point at the
+ * HTTP-only hosted backend (eas.json "hosted-test", scripts/build-test-apk.sh) need them, so this
+ * turns cleartext on only when the bundled API URL is http://. Builds with an https:// URL never
+ * get it. (Debug builds already allow cleartext through the template's debug manifest.)
+ */
+const withCleartextForHttpApi: ConfigPlugin = (config) => {
+  if (!process.env.EXPO_PUBLIC_API_URL?.startsWith('http://')) return config;
+  return withAndroidManifest(config, (mod) => {
+    const application = mod.modResults.manifest.application?.[0];
+    if (application) application.$['android:usesCleartextTraffic'] = 'true';
+    return mod;
+  });
+};
+
+const appConfig = ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: APP_NAME,
+  owner: 'irusha',
   slug: 'stitchflow',
   version: '1.0.0',
   scheme: 'stitchflow',
@@ -88,8 +105,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     eas: {
-      // Run `npx eas-cli@latest init` once and paste the printed projectId here.
-      // projectId: '',
+      // @irusha/stitchflow on expo.dev (created by `eas init` on 2026-10-31).
+      projectId: 'ef893f9e-65d5-4453-8728-17e2f25e1366',
     },
   },
 });
+
+export default (context: ConfigContext): ExpoConfig => withCleartextForHttpApi(appConfig(context));

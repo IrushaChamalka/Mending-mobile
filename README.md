@@ -49,6 +49,7 @@ All variables are listed in `.env.example`. Only `EXPO_PUBLIC_*` values are bund
 | `EXPO_PUBLIC_SENTRY_DSN`                            | Sentry DSN; empty disables error reporting                                                                                              |
 | `EXPO_PUBLIC_SENTRY_ENABLE_IN_DEV`                  | `true` also reports from development builds                                                                                             |
 | `EXPO_PUBLIC_APP_ENV`                               | `development`, `preview`, or `production`. Sent to Sentry as the environment; anything but `development` requires an `https://` API URL |
+| `EXPO_PUBLIC_ALLOW_INSECURE_HTTP`                   | `true` lets an internal test build use an `http://` API URL (the hosted test backend). Refused in production builds                     |
 | `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Build-time only: source-map upload by the Sentry Expo plugin. Without a token the upload step is skipped, so local builds still succeed |
 
 `src/shared/config/env.ts` validates these with zod at startup and is the only place that reads `process.env`. An invalid value stops the app at launch with a message naming the variable.
@@ -81,7 +82,7 @@ The backend listens on port 3000 by default. Set `EXPO_PUBLIC_API_URL` according
 
 `../backend-local/LOCAL_DEVELOPMENT.md` runs the backend branch the app is built against (`feature/tecnyne-10-14-2026-TEC9-91`), its database and an S3 mock in Docker, with mobile test data and real response samples in `../backend-local/samples/`.
 
-Cleartext HTTP is allowed in development builds only. Preview and production builds must use HTTPS: the env check refuses an `http://` URL unless `EXPO_PUBLIC_APP_ENV` is `development`. Restart Metro with `npm start -- --clear` after changing `.env`, because Expo inlines the values when it bundles.
+Cleartext HTTP is allowed in development builds, and in internal test builds that opt in with `EXPO_PUBLIC_ALLOW_INSECURE_HTTP=true` (the `hosted-test` profile). Otherwise preview and production builds must use HTTPS: the env check refuses an `http://` URL. Restart Metro with `npm start -- --clear` after changing `.env`, because Expo inlines the values when it bundles.
 
 ## How the app works
 
@@ -162,13 +163,23 @@ Conventions: Testing Library 14's `render` and `renderHook` are async, so always
 
 ## Builds and releases
 
-`eas.json` has three profiles:
+The EAS project is `@irusha/stitchflow` (`extra.eas.projectId` in `app.config.ts`). `eas.json` has four profiles:
 
-| Profile       | What it builds                                                     |
-| ------------- | ------------------------------------------------------------------ |
-| `development` | Development client (APK on Android) for `npm start`                |
-| `preview`     | Internal-distribution release build (APK) against the real backend |
-| `production`  | Store build (Android App Bundle), build number incremented by EAS  |
+| Profile       | What it builds                                                                                                   |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `development` | Development client (APK on Android) for `npm start`                                                              |
+| `preview`     | Internal-distribution release build (APK) against the real backend                                               |
+| `hosted-test` | Internal test APK against the HTTP-only hosted backend `http://3.88.233.218:3000` (cleartext allowed, see below) |
+| `production`  | Store build (Android App Bundle), build number incremented by EAS                                                |
+
+### Test APK against the hosted backend
+
+```sh
+npx eas-cli@latest build --platform android --profile hosted-test   # cloud build, download link when done
+scripts/build-test-apk.sh                                             # local build; needs JDK 17 and an Android SDK
+```
+
+The hosted backend serves plain HTTP, so this profile sets `EXPO_PUBLIC_ALLOW_INSECURE_HTTP=true` (the env check otherwise demands `https://` outside development) and `app.config.ts` adds Android's `usesCleartextTraffic` because the API URL is `http://`. Neither happens for an `https://` URL, and the env check refuses the opt-in in a production build. The hosted server runs the same API as `feature/tecnyne-10-14-2026-TEC9-91`; it has no withdrawal-request, payout-account or password-reset endpoints, so those screens stay hidden as against any real backend.
 
 Set `EXPO_PUBLIC_API_URL` (HTTPS) and `EXPO_PUBLIC_SENTRY_DSN` as EAS environment variables for the preview and production environments. Add `SENTRY_AUTH_TOKEN` as a secret with `SENTRY_ORG` and `SENTRY_PROJECT` to upload source maps.
 
@@ -176,7 +187,6 @@ Before the first store release:
 
 - confirm the bundle identifier and package name in `app.config.ts`;
 - replace the placeholder icon, adaptive icon and splash, and the logo mark in `src/shared/ui/AuthHeader.tsx`, with exports from Figma (`docs/DESIGN_INVENTORY.md` §10);
-- link the EAS project (`npx eas-cli@latest init`);
 - serve the backend over HTTPS (`docs/API_CONTRACT.md` Gap 17).
 
 ## Docs

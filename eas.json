@@ -24,6 +24,18 @@
         "EXPO_PUBLIC_USE_MOCK_API": "false"
       }
     },
+    "hosted-test": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "preview",
+        "EXPO_PUBLIC_API_URL": "http://3.88.233.218:3000",
+        "EXPO_PUBLIC_ALLOW_INSECURE_HTTP": "true",
+        "EXPO_PUBLIC_USE_MOCK_API": "false"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "android": {

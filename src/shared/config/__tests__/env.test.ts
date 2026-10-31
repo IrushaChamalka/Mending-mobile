@@ -7,6 +7,7 @@ function raw(overrides: Partial<RawEnv> = {}): RawEnv {
     sentryDsn: undefined,
     sentryEnableInDev: undefined,
     appEnv: undefined,
+    allowInsecureHttp: undefined,
     ...overrides,
   };
 }
@@ -45,6 +46,17 @@ describe('parseEnv', () => {
     );
   });
 
+  it('lets an internal test build opt in to an http backend, but never production', () => {
+    const hosted = { apiUrl: 'http://3.88.233.218:3000', appEnv: 'preview' };
+    expect(() => parseEnv(raw(hosted))).toThrow('must use https://');
+    expect(parseEnv(raw({ ...hosted, allowInsecureHttp: 'true' })).apiUrl).toBe(
+      'http://3.88.233.218:3000',
+    );
+    expect(() =>
+      parseEnv(raw({ ...hosted, appEnv: 'production', allowInsecureHttp: 'true' })),
+    ).toThrow('never production');
+  });
+
   it('reads the switches and defaults them to off', () => {
     expect(parseEnv(raw())).toEqual({
       apiUrl: 'http://localhost:3000',
@@ -52,6 +64,7 @@ describe('parseEnv', () => {
       sentryDsn: undefined,
       sentryEnableInDev: false,
       appEnv: 'development',
+      allowInsecureHttp: false,
     });
     expect(parseEnv(raw({ useMockApi: 'true', sentryEnableInDev: 'true' }))).toMatchObject({
       useMockApi: true,
